@@ -225,8 +225,8 @@ def run_qwen_model_chain():
 if __name__ == "__main__":
   load_env()
 
-  response = call_qwen_with_openai_client()
-  print(response)
+  # response = call_qwen_with_openai_client()
+  # print(response)
   
   run_langchain_chat_model(use_chat_tongyi=False)
   

@@ -1,7 +1,8 @@
-from langgraph import StateGraph,CompileGraph
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.state import CompiledStateGraph
 
 
-def save_graph_as_markdown(graph:CompileGraph, filename="graph.md"):
+def save_graph_as_markdown(graph: CompiledStateGraph, filename="graph.md"):
     """Save graph as Markdown file with Mermaid diagram for VS Code preview"""
     mermaid_code = graph.get_graph().draw_mermaid()
 
@@ -18,13 +19,14 @@ def save_graph_as_markdown(graph:CompileGraph, filename="graph.md"):
 
 
 
-def save_graph_image(graph:CompileGraph, filename="graph.png"):
+def save_graph_image(graph:CompiledStateGraph,graph_dir="./images/langgraph_images" , filename="graph.png"):
     # View
     # display(Image(graph.get_graph().draw_mermaid_png()))
 
     # View - Save PNG to file for VS Code
     png_data = graph.get_graph().draw_mermaid_png()
-    with open(filename, "wb") as f:
+    filepath = f"{graph_dir}/{filename}"
+    with open(filepath, "wb") as f:
       f.write(png_data)
     print(f"Graph saved as '{filename}' - open this file in VS Code to view")
 
@@ -34,4 +36,4 @@ def save_graph_image(graph:CompileGraph, filename="graph.png"):
     print(mermaid_code)
 
     # Save as Markdown file (recommended for VS Code)
-    save_graph_as_markdown(graph)
+    # save_graph_as_markdown(graph)
