@@ -3,16 +3,17 @@ from langchain.chat_models import init_chat_model
 from langchain_community.chat_models import ChatTongyi
 from langchain.agents import create_agent 
 from langchain.agents import AgentState
-
 from langgraph.types import Command
 from langchain_core.tools import InjectedToolCallId, tool
+from utils.env_utils import load_env, get_env
+from utils.format_utils import format_messages
+from utils.qwen_api import init_openai_client_with_qwen,init_langchain_chat_tongyi
 from prompts.deep_agent_prompts import SYSTEM_PROMPT, TODO_USAGE_INSTRUCTIONS, SIMPLE_RESEARCH_INSTRUCTIONS
 from deep_agents.deep_agent_states import CalcState, DeepAgentState
 from tools.calculator_tools import calculator, calculator_wstate
 from tools.todo_tools import write_todos, read_todos
 from tools.web_search_tools import web_search
-from utils.env_utils import load_env, get_env
-from utils.format_utils import format_messages
+
 
 
 load_env()
@@ -52,10 +53,7 @@ class DeepAgentExecutor:
 
   def init_llm(self, model_name: str="qwen-plus", llm_kwargs: dict = None):
      if model_name.startswith("qwen"):
-        model = ChatTongyi(
-        model_name="qwen-plus",
-        temperature=0
-    )
+        model = init_langchain_chat_tongyi(model_name=model_name)
      else:
         model = init_chat_model(model_name, llm_kwargs)
      return model
@@ -141,9 +139,9 @@ if __name__ == "__main__":
 
   deep_agent_executor = DeepAgentExecutor()
   
-  # query ="What is 3.1 * 4.2?"
-  # query = "What is 3.1 * 4.2 + 5.5 * 6.5?"
-  # result = deep_agent_executor.run_calculator(query=query)
+  query ="What is 3.1 * 4.2?"
+  query = "What is 3.1 * 4.2 + 5.5 * 6.5?"
+  result = deep_agent_executor.run_calculator(query=query)
 
 
   query ="Give me a short summary of the Model Context Protocol (MCP)."

@@ -7,9 +7,11 @@ langchain-community
 langgraph-checkpoint
 langsmith
 llamaindex
+langchain-openai
 dashscope
 # SQLite via SQLAlchemy
 SQLAlchemy
+langchain-tavily
 tavily-python
 pydantic[email]
 wikipedia
