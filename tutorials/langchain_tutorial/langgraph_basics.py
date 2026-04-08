@@ -1,13 +1,14 @@
-from pyexpat.errors import messages
-from pyexpat.errors import messages
+from pprint import pprint
 import random
 from typing import Dict, Literal, List, Annotated
 from urllib import response
+from google_crc32c import value
 from typing_extensions import TypedDict
 from IPython.display import Image, display
 from langgraph.graph import StateGraph, START, END
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import ToolNode,tools_condition
 
-from pprint import pprint
 from langchain_core.messages import (
     SystemMessage,
     AIMessage,
@@ -37,10 +38,12 @@ class State(TypedDict):
 # class MessageState(TypedDict):
 #     messages: Annotated[List[AnyMessage], add_messages]
 
+MAX_TOOL_LOOPS = 5  # Set your max here (e.g., 5 iterations)
 
-class MessageState(MessagesState):
+
+class ExtendedMessagesState(MessagesState):
     # Add any keys needed beyond messages, which is pre-built
-    pass
+    tool_loop_count: int = 0  # New: Specific counter for tool_calling_llm loops
 
 
 def run_add_messages():
@@ -183,6 +186,25 @@ def multiply(a: int, b: int) -> int:
     """
     return a * b
 
+# This will be a tool
+def add(a: int, b: int) -> int:
+    """Adds a and b.
+
+    Args:
+        a: first int
+        b: second int
+    """
+    return a + b
+
+def divide(a: int, b: int) -> float:
+    """Divide a and b.
+
+    Args:
+        a: first int
+        b: second int
+    """
+    return a / b
+  
 
 def run_chat_model():
     messages = [
@@ -218,6 +240,38 @@ def run_chat_model():
     print(tool_call.tool_calls)
 
 
+def run_chat_model_stream():
+    llm = init_langchain_chat_openai()
+    llm_with_tools = llm.bind_tools([multiply])
+
+    question_01 = "What is 2 multiplied by 3"
+    question_02 = "Hello, how are you?"
+    question_03 = "What is two multiplied by 3"
+
+    question = question_01  # Change as needed
+
+    stream = llm_with_tools.stream([HumanMessage(content=question, name="Lance")])
+
+    for i, chunk in enumerate(stream):
+        print(f"Chunk {i}:")
+        print(f"  Content: {chunk.content}")
+
+        if chunk.tool_calls:  # Check if there are tool calls in this chunk
+            for tool_call in chunk.tool_calls:
+                tool_name = tool_call.get("name")  # e.g., 'multiply'
+                tool_args = tool_call.get("args", {})  # e.g., {'a': 2, 'b': 3}
+                tool_id = tool_call.get("id")  # e.g., 'call_123'
+
+                print(f"  Tool Name: {tool_name}")
+                print(f"  Tool Args: {tool_args}")
+                print(f"  Tool ID: {tool_id}")
+
+                # Optional: You can accumulate or process the tool calls here
+                # For example, store them in a list for later execution
+        else:
+            print("  No tool calls in this chunk.")
+
+
 """
 ToolNode: This is a prebuilt LangGraph utility that simplifies tool execution. It takes your tools (e.g., [multiply]) and automatically:
 - Extracts tool calls from the last message.
@@ -237,87 +291,230 @@ def execute_tools(state: MessagesState) -> Dict[str, AnyMessage]:
     tool_results = []
     if hasattr(last_message, "tool_calls"):
         for tool_call in last_message.tool_calls:
-          try:
-            if tool_call["name"] == "multiply":
-                result = multiply(**tool_call["args"])  # Execute the tool
+            try:
+                if tool_call["name"] == "multiply":
+                    result = multiply(**tool_call["args"])  # Execute the tool
+                    tool_results.append(
+                        ToolMessage(
+                            content=str(result),  # Convert result to string
+                            tool_call_id=tool_call["id"],
+                        )
+                    )
+                else:
+                    # Handle unknown tools (optional, for future expansion)
+                    tool_results.append(
+                        ToolMessage(
+                            content=f"Error: Unknown tool: {tool_call['name']}",
+                            tool_call_id=tool_call["id"],
+                        )
+                    )
+            except Exception as e:
+                # Handle any failure (e.g., invalid args, KeyError, TypeError)
                 tool_results.append(
-                    ToolMessage(content=str(result),  # Convert result to string
-                                tool_call_id=tool_call["id"])
+                    ToolMessage(
+                        content=f"Error executing tool: {e}",
+                        tool_call_id=tool_call["id"],
+                    )
                 )
-            else:
-              # Handle unknown tools (optional, for future expansion)
-                tool_results.append(
-                    ToolMessage(content=f"Error: Unknown tool: {tool_call['name']}", tool_call_id=tool_call["id"])
-                )
-          except Exception as e:
-            # Handle any failure (e.g., invalid args, KeyError, TypeError)
-            tool_results.append(
-                ToolMessage(content=f"Error executing tool: {e}", tool_call_id=tool_call["id"])
-            )
     return {"messages": tool_results}
 
 
-def run_graph_with_tool_calling():
+# Conditional Edge (should_continue): This function inspects the last message. If it contains tool calls, it routes to the "tools" node. Otherwise, it ends the graph. This prevents infinite loops and ensures the graph only executes tools when needed.
 
-    llm = init_langchain_chat_openai()
-    llm_with_tools = llm.bind_tools([multiply])
 
-    # define node for llm with tools
-    def tool_calling_llm(state: MessagesState) -> Dict[str, AnyMessage]:
-        messages = state["messages"]
-        result = llm_with_tools.invoke(messages)
-        return {"messages": result}
+# Loop Back Edge: After tool execution, the graph routes back to tool_calling_llm. This allows the LLM to process the tool results and generate a final response (e.g., "The result is 6").
+# add conditional edge to check for tool calls in the last message
+def should_continue(state: ExtendedMessagesState) -> Literal["execute_tools", END]:
+    messages = state["messages"]
+    last_message = messages[-1]
 
-    builder = StateGraph(MessageState)
+    tool_loop_count = state.get("tool_loop_count", 0)
+
+    if tool_loop_count >= MAX_TOOL_LOOPS:
+        print(
+            f"Reached max tool loops ({MAX_TOOL_LOOPS}). Ending graph to prevent infinite loop."
+        )
+        return END
+
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "execute_tools"  # Route to tool execution node
+    else:
+        return END
+
+
+
+
+# define node for llm with tools
+def tool_calling_llm(state: ExtendedMessagesState) -> Dict[str, AnyMessage]:
+    messages = state["messages"]
+    result = llm_with_tools.invoke(messages)
+    # Increment only the tool-specific counter
+    return {
+        "messages": result,
+        "tool_loop_count": state.get("tool_loop_count", 0) + 1,
+    }  # Pass loop_count through state
+
+def build_graph_with_tool_calling_v1(save_graph: bool = False) -> CompiledStateGraph:
+
+    builder = StateGraph(ExtendedMessagesState)
     builder.add_node("tool_calling_llm", tool_calling_llm)
     builder.add_edge(START, "tool_calling_llm")
-
-    # Conditional Edge (should_continue): This function inspects the last message. If it contains tool calls, it routes to the "tools" node. Otherwise, it ends the graph. This prevents infinite loops and ensures the graph only executes tools when needed.
-
-    # Loop Back Edge: After tool execution, the graph routes back to tool_calling_llm. This allows the LLM to process the tool results and generate a final response (e.g., "The result is 6").
-    # add conditional edge to check for tool calls in the last message
-    def should_continue(state: MessagesState) -> Literal["execute_tools", END]:
-        messages = state["messages"]
-        last_message = messages[-1]
-        if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-            return "execute_tools"  # Route to tool execution node
-        else:
-            return END  
 
     # add tool execution node
     builder.add_node("execute_tools", execute_tools)
     builder.add_conditional_edges("tool_calling_llm", should_continue)
-    
+
     # # Route back to LLM for tool execution ?
     # Missing Edge: After execute_tools runs, the graph needs to route back to "tool_calling_llm" so the LLM can process the tool results and generate a final response (e.g., "The result is 6"). Without this, the graph will end after tool execution, leaving you with raw tool messages instead of a complete response.
     builder.add_edge("execute_tools", "tool_calling_llm")
-    
-  
+
     # builder.add_edge("tool_calling_llm", END)
     graph = builder.compile()
 
-    save_graph_image(graph,filename="graph_with_tool_calling_v2.png")
-    
-    question_01 = "What is 2 multiplied by 3"
-    question_02 = f"Hello, how are you?"
-    question_03 = "What is two multiplied by 3"
-    
-    question = question_03
-    
+    if save_graph:
+        save_graph_image(graph, filename="graph_with_tool_calling_v1.png")
+    return graph
+
+
+def build_graph_with_tool_calling_v2(save_graph: bool = False) -> CompiledStateGraph:
+  """This version simplifies the graph by using a ToolNode, which automatically handles tool calls and execution. The conditional edge now only checks for the presence of tool calls to determine whether to route to the ToolNode or end the graph."""
+
+  builder = StateGraph(ExtendedMessagesState)
+  builder.add_node("tool_calling_llm", tool_calling_llm)
+  builder.add_edge(START, "tool_calling_llm")
+  
+  # add ToolNode for automatic tool execution
+  builder.add_node("tools", ToolNode([multiply]))
+  # If the latest message (result) from assistant is a tool call -> tools_condition routes to tools
+  # If the latest message (result) from assistant is a not a tool call -> tools_condition routes to END
+  builder.add_conditional_edges("tool_calling_llm", tools_condition)
+  
+  builder.add_edge("tools", "tool_calling_llm")  # Loop back to LLM after tool execution
+  graph = builder.compile()
+  if save_graph:
+    save_graph_image(graph, filename="graph_with_tool_calling_v2.png")
+  return graph
+  
+
+
+
+
+def run_graph_with_tool_calling(version: int = 1, save_graph: bool = False):
+
+    question = QUESTION_03
+    if version == 1:
+        graph = build_graph_with_tool_calling_v1()
+    elif version == 2:
+        graph = build_graph_with_tool_calling_v2(save_graph=save_graph)
+        
+
     messages = graph.invoke(
-        {"messages": [HumanMessage(content=question, name="Lance")]}
+        {
+            "messages": [HumanMessage(content=question, name="Lance")],
+            "tool_loop_count": 0,
+        }  # Initialize here to ensure it's in the state
     )
     for m in messages["messages"]:
         m.pretty_print()
 
 
+def run_graph_with_tool_calling_stream():
+    question = QUESTION_02
+    graph = build_graph_with_tool_calling_v1()
+    stream = graph.stream(
+        {
+            "messages": [HumanMessage(content=question, name="Lance")],
+            "tool_loop_count": 0,
+        }
+    )
+
+    accumulated_state = {}
+    for i, chunk in enumerate(stream):
+        print(f"\n=== Chunk {i} ===")
+        # Merge chunk updates into accumulated state
+        for node_name, state_update in chunk.items():
+            for key, value in state_update.items():
+                if isinstance(value, list):
+                    accumulated_state.setdefault(key, []).extend(value)
+                else:
+                    accumulated_state.setdefault(key, []).extend([value])
+
+        # Now you can access full state
+        if "messages" in accumulated_state:
+            last_msg = accumulated_state["messages"][-1]
+            last_msg.pretty_print()
+
+
+
+
+def build_math_agent_graph(save_graph: bool = False) -> CompiledStateGraph:
+    llm = init_langchain_chat_openai()
+    tools = [multiply, add, divide]
+    llm_with_tools = llm.bind_tools(tools, parallel_tool_calls=False)
+    
+    # System message
+    sys_msg = SystemMessage(content="You are a helpful assistant tasked with performing arithmetic on a set of inputs.")
+    # Node
+    def assistant(state: MessagesState):
+      return {"messages": [llm_with_tools.invoke([sys_msg] + state["messages"])]}
+    
+    
+    
+    builder = StateGraph(ExtendedMessagesState)
+    # rename tool_calling_llm to agent for clarity in this context
+    builder.add_node("agent", assistant)
+    builder.add_edge(START, "agent")
+
+    # add ToolNode for automatic tool execution
+    builder.add_node("tools", ToolNode(tools))
+    builder.add_conditional_edges("agent", tools_condition)
+    
+    builder.add_edge("tools", "agent")  # Loop back to LLM after tool execution
+    graph = builder.compile()
+    if save_graph:
+        save_graph_image(graph, filename="math_agent_graph.png")
+    return graph
+  
+
+def run_math_agent_graph(save_graph: bool = False):
+    question = QUESTION_04
+    graph = build_math_agent_graph(save_graph=save_graph)
+    messages = [HumanMessage(content=question, name="Lance")]
+    messages = graph.invoke(
+        {
+            "messages": messages,
+            "tool_loop_count": 0,
+        }  # Initialize here to ensure it's in the state``
+    )
+  
+    for m in messages["messages"]:
+        m.pretty_print()  
+    
+  
+  
 if __name__ == "__main__":
     load_env()
 
+    QUESTION_01 = "What is 2 multiplied by 3"
+    QUESTION_02 = f"Hello, how are you?"
+    QUESTION_03 = "What is too multiplied by 3"
+    QUESTION_04 = "What is 2 multiplied by 3, then add 4, then divide by 2?"
+
+    # llm = init_langchain_chat_openai()
+    # llm_with_tools = llm.bind_tools([multiply])
     # print("Graph built successfully!")
     # run_simple_graph()
 
     # run_chat_model()
+    # run_chat_model_stream()
+
     # run_add_messages()
 
-    run_graph_with_tool_calling()
+    # run_graph_with_tool_calling(version=2, save_graph=True)
+
+    # run_graph_with_tool_calling_stream()
+    
+    run_math_agent_graph(save_graph=True)
+    
+    
+    

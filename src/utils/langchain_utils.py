@@ -31,9 +31,9 @@ def save_graph_image(graph:CompiledStateGraph,graph_dir="./images/langgraph_imag
     print(f"Graph saved as '{filename}' - open this file in VS Code to view")
 
     # Alternative: Get Mermaid markup (VS Code can render this)
-    mermaid_code = graph.get_graph().draw_mermaid()
-    print("\nMermaid code (copy to a .md file with ```mermaid):")
-    print(mermaid_code)
+    # mermaid_code = graph.get_graph().draw_mermaid()
+    # print("\nMermaid code (copy to a .md file with ```mermaid):")
+    # print(mermaid_code)
 
     # Save as Markdown file (recommended for VS Code)
     # save_graph_as_markdown(graph)
