@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
 class ResumeRequest(BaseModel):
     approved: bool
     thread_id: str = "t001"
+    human_comment:str =""
     
 
 
@@ -26,12 +27,12 @@ async def chat_endpoint(chat_request: ChatRequest, req: Request) -> Dict[str, st
             }
 
 
-@chat_api.post("/resume")
-async def resume_endpoint(resume_request: ResumeRequest, req: Request) -> Dict[str, str|bool]:
+@chat_api.post("/hitp")
+async def hitp_endpoint(resume_request: ResumeRequest, req: Request) -> Dict[str, str|bool]:
     # Simple echo response for now
-    agent = req.app.state.chat_agent
+    agent:SimpleChatAgent = req.app.state.chat_agent
     
-    response = agent.resume(resume_request.approved, resume_request.thread_id)
+    response = agent.hitp(resume_request.approved, resume_request.thread_id,human_comment=resume_request.human_comment)
     
     return {
         "need_approval": False,
