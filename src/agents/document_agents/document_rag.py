@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from IPython.display import display, Image, IFrame, Markdown, JSON 
 
-import helper
+import agents.document_agents.helper as helper
 
 # OpenAI & ChromaDB - Embedding + Vector Store
 import openai

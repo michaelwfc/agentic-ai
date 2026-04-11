@@ -19,7 +19,7 @@ def save_graph_as_markdown(graph: CompiledStateGraph, filename="graph.md"):
 
 
 
-def save_graph_image(graph:CompiledStateGraph,graph_dir="./images/langgraph_images" , filename="graph.png"):
+def save_graph_image(graph:CompiledStateGraph,filename="graph.png",graph_dir="./images/langgraph_images"):
     # View
     # display(Image(graph.get_graph().draw_mermaid_png()))
 

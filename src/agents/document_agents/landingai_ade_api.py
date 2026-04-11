@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field
 from landingai_ade.lib import pydantic_to_json_schema
 from landingai_ade import LandingAIADE
 from landingai_ade.types import ParseResponse, ExtractResponse
-from document_agents.helper import print_document, draw_bounding_boxes, draw_bounding_boxes_2
-from document_agents.helper import create_cropped_chunk_images
+from agents.document_agents.helper import print_document, draw_bounding_boxes, draw_bounding_boxes_2
+from agents.document_agents.helper import create_cropped_chunk_images
 
 
 bill_schema_dict = {

@@ -12,9 +12,9 @@ from langchain.tools import tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # from langchain_openai import ChatOpenAI
 from langchain_community.chat_models import ChatOpenAI
-from document_agents.document_process import ocr_read_document
-from document_agents.document_process_tools import AnalyzeTable,AnalyzeChart
-from document_agents.document_process_tools import build_document_process_tools
+from agents.document_agents.document_process import ocr_read_document
+from agents.document_agents.document_process_tools import AnalyzeTable,AnalyzeChart
+from agents.document_agents.document_process_tools import build_document_process_tools
 from utils.qwen_api import init_qwen_with_langchain
 from utils.format_utils import format_messages
 
