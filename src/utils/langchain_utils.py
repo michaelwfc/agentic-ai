@@ -24,7 +24,8 @@ def save_graph_image(graph:CompiledStateGraph,filename="graph.png",graph_dir="./
     # display(Image(graph.get_graph().draw_mermaid_png()))
 
     # View - Save PNG to file for VS Code
-    png_data = graph.get_graph().draw_mermaid_png()
+    # Setting xray to 1 will show the internal structure of the nested graph
+    png_data = graph.get_graph(xray=1).draw_mermaid_png()
     filepath = f"{graph_dir}/{filename}"
     with open(filepath, "wb") as f:
       f.write(png_data)
