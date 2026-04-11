@@ -16,7 +16,7 @@ from langchain.agents import create_agent  # updated 1.0
 from langgraph.types import Command
 
 from prompts.deep_agent_prompts import TASK_DESCRIPTION_PREFIX
-from deep_agents.deep_agent_states import DeepAgentState
+from agents.deep_agents.deep_agent_states import DeepAgentState
 
 
 class SubAgent(TypedDict):

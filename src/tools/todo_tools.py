@@ -13,7 +13,7 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 
 from prompts.deep_agent_prompts import WRITE_TODOS_DESCRIPTION
-from deep_agents.deep_agent_states import DeepAgentState, Todo
+from agents.deep_agents.deep_agent_states import DeepAgentState, Todo
 
 
 @tool(description=WRITE_TODOS_DESCRIPTION,parse_docstring=True)

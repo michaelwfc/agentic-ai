@@ -16,7 +16,7 @@ from prompts.deep_agent_prompts import (
     READ_FILE_DESCRIPTION,
     WRITE_FILE_DESCRIPTION,
 )
-from deep_agents.deep_agent_states import DeepAgentState
+from agents.deep_agents.deep_agent_states import DeepAgentState
 
 
 @tool(description=LS_DESCRIPTION)

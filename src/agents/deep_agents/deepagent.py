@@ -9,7 +9,7 @@ from utils.env_utils import load_env, get_env
 from utils.format_utils import format_messages
 from utils.qwen_api import init_openai_client_with_qwen,init_langchain_chat_tongyi
 from prompts.deep_agent_prompts import SYSTEM_PROMPT, TODO_USAGE_INSTRUCTIONS, SIMPLE_RESEARCH_INSTRUCTIONS
-from deep_agents.deep_agent_states import CalcState, DeepAgentState
+from agents.deep_agents.deep_agent_states import CalcState, DeepAgentState
 from tools.calculator_tools import calculator, calculator_wstate
 from tools.todo_tools import write_todos, read_todos
 from tools.web_search_tools import web_search
