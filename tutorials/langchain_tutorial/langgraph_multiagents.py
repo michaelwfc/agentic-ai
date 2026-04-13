@@ -1,4 +1,5 @@
 from typing import Any, List, Annotated, Optional
+from pydantic import BaseModel
 from typing_extensions import TypedDict
 import operator
 from operator import add
@@ -6,7 +7,9 @@ from operator import add
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Send
 
+from utils.env_utils import load_env
 from utils.langchain_utils import save_graph_image
 from utils.qwen_api import init_langchain_chat_openai
 
@@ -259,7 +262,7 @@ class QuestionSummarizationOutputState(TypedDict):
     processed_logs: List[str]
 
 
-def generate_question_summary(state:QuestionSummarizationState):
+def generate_question_summary(state: QuestionSummarizationState):
     cleaned_logs = state["cleaned_logs"]
     # Add fxn: summary = summarize(generate_summary)
     summary = "Questions focused on usage of ChatOllama and Chroma vector store."
@@ -269,7 +272,7 @@ def generate_question_summary(state:QuestionSummarizationState):
     }
 
 
-def send_to_slack(state:QuestionSummarizationState):
+def send_to_slack(state: QuestionSummarizationState):
     qs_summary = state["qs_summary"]
     # Add fxn: report = report_generation(qs_summary)
     report = "foo bar baz"
@@ -317,6 +320,10 @@ def clean_logs(state):
 
 
 class LogAnalysisAgent:
+    """
+    https://github.com/langchain-ai/langchain-academy/blob/main/module-4/sub-graph.ipynb
+    """
+  
     def __init__(self):
         # self.llm = init_langchain_chat_openai()
         self.memory = MemorySaver()
@@ -336,13 +343,13 @@ class LogAnalysisAgent:
         builder.add_edge(["failure_analysis", "question_summarization"], END)
 
         graph = builder.compile()
-        
+
         save_graph_image(graph, "log_analysis_agent.png")
         return graph
 
     def run(self):
         graph = self.build_graph()
-        
+
         # Dummy logs
         question_answer = Log(
             id="1",
@@ -359,19 +366,115 @@ class LogAnalysisAgent:
             feedback="The retrieved documents discuss vector stores in general, but not Chroma specifically",
         )
 
-        raw_logs = [question_answer,question_answer_feedback]
+        raw_logs = [question_answer, question_answer_feedback]
         output = graph.invoke({"raw_logs": raw_logs})
         print(output)
 
 
+class Subjects(BaseModel):
+    subjects: list[str]
+
+
+class BestJoke(BaseModel):
+    id: int
+
+
+class OverallState(TypedDict):
+    topic: str
+    subjects: list[str]
+    jokes: Annotated[list, operator.add]
+    best_selected_joke: str
+
+
+class JokeState(TypedDict):
+    subject: str
+
+
+class Joke(BaseModel):
+    joke: str
+
+
+class JokeGeneratorAgent:
+    def __init__(self):
+        self.llm = init_langchain_chat_openai()
+        self.memory = MemorySaver()
+
+        # Prompts we will use
+        self.subjects_prompt = """Generate a list of 3 sub-topics that are all related to this overall topic: {topic}."""
+        self.joke_prompt = """Generate a joke about {subject}"""
+        self.best_joke_prompt = """Below are a bunch of jokes about {topic}. Select the best one! Return the ID of the best one, starting 0 as the ID for the first joke. Jokes: \n\n  {jokes}"""
+
+    def generate_topics(self, state: OverallState):
+        topic = state["topic"]
+        prompt = self.subjects_prompt.format(topic=topic)
+        response = self.llm.with_structured_output(Subjects).invoke(prompt)
+        return {"subjects": response.subjects}
+
+    def continue_to_jokes(self, state: OverallState):
+        """
+        we use the Send to create a joke for each subject.
+
+        This is very useful! It can automatically parallelize joke generation for any number of subjects.
+
+        generate_joke: the name of the node in the graph
+        {"subject": s}: the state to send
+        Send allow you to pass any state that you want to generate_joke! It does not have to align with OverallState.
+
+        In this case, generate_joke is using its own internal state, and we can populate this via Send.
+        """
+
+        sent_to_node = "generate_joke"
+        tasks = [Send(sent_to_node, {"subject": s}) for s in state["subjects"]]
+        return tasks
+
+    def generate_joke(self, state: JokeState):
+        """Map: Generate a joke about the subject
+        """
+        subject = state["subject"]
+        prompt =  self.joke_prompt.format(subject=subject)
+      
+        response = self.llm.with_structured_output(Joke).invoke(prompt)
+        return {"jokes": [response.joke]}
+
+    def select_best_joke(self, state: OverallState):
+        jokes = state["jokes"]
+        prompt = self.best_joke_prompt.format(topic=state["topic"], jokes=jokes)
+        response = self.llm.with_structured_output(BestJoke).invoke(prompt)
+        return {"best_selected_joke": jokes[response.id]}
+
+    def build_graph(self) -> CompiledStateGraph:
+        builder = StateGraph(OverallState)
+
+        builder.add_node("generate_topics", self.generate_topics)
+        builder.add_node("generate_joke", self.generate_joke)
+        builder.add_node("select_best_joke", self.select_best_joke)
+        
+        builder.add_edge(START, "generate_topics")
+        builder.add_conditional_edges("generate_topics", self.continue_to_jokes, ["generate_joke"])
+        builder.add_edge("generate_joke", "select_best_joke")
+        builder.add_edge("select_best_joke", END)
+        graph = builder.compile()
+        save_graph_image(graph, "joke_generator_agent.png")
+        return graph
+      
+    def run(self):
+        graph = self.build_graph()
+        # Call the graph: here we call it to generate a list of jokes
+        for s in graph.stream({"topic": "animals"}):
+            print(s)
+
+
 if __name__ == "__main__":
+    load_env()
+  
     # agent = SimpleNodeAgent()
     # agent.run()
 
     # agent = SimpleMuiltiAgent()
     # agent.run()
-    
-    
-    agent = LogAnalysisAgent()
+
+    # agent = LogAnalysisAgent()
+    # agent.run()
+
+    agent = JokeGeneratorAgent()
     agent.run()
-    

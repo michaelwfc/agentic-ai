@@ -17,3 +17,12 @@
 
 - UCB《高级大语言模型智能体|CS 194 294-280 (Advanced LLM Agents) 2025》中英字幕
 
+
+
+# Blogs
+- https://jxnl.co/
+
+
+# Open Source
+
+

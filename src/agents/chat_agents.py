@@ -147,6 +147,10 @@ class SimpleChatAgent:
         how to directly edit the graph state and insert human feedback.
 
         https://docs.langchain.com/oss/javascript/langgraph/interrupts#review-and-edit-state
+        
+        updates to the messages key will use the add_messages reducer:
+        - If we want to over-write the existing message, we can supply the message id.
+        - If we simply want to append to our list of messages, then we can pass a message without an id specified, as shown below.
 
         """
 
@@ -162,36 +166,37 @@ class SimpleChatAgent:
             # Remember how our reducer on messages works:
             # It will append, unless we supply a message ID.
             # We supply the message ID to overwrite the message, rather than appending to state!
-            current_state = self.graph.get_state(config)           
+            current_state = self.graph.get_state(config)
             # current_state.config
             # {'configurable': {'thread_id': '1f57c756-b4cc-4adf-9703-332d9c46781e', 'checkpoint_ns': '', 'checkpoint_id': '1f135542-b008-6b94-8002-d235a3717456'}}
 
             self.graph.update_state(
-                current_state.config,
-                {
+                config=current_state.config,
+                values={
                     "messages": [
                         HumanMessage(
                             content=human_comment,
-                            id =  current_state.values["messages"][-2].id
+                            # replace with your own message
+                            id=current_state.values["messages"][-2].id,
                         )
                     ]
                 },
             )
-            
-            # current_state = self.graph.get_state(config)      
+
+            # current_state = self.graph.get_state(config)
             # continue with the comment message
             events = self.graph.stream(None, config=config, stream_mode="values")
 
             for event in events:
                 event["messages"][-1].pretty_print()
-            
+
         else:
             state = self.graph.get_state(config)
             last_message = state.values["messages"][-1]
             tool_call_id = last_message.tool_calls[0]["id"]
             self.graph.update_state(
-                config,
-                {
+                config=config,
+                values={
                     "messages": [
                         ToolMessage(
                             content="Tool usage denied by user. Do not answer this question.",
