@@ -44,6 +44,17 @@ This repository is for reinforment learning and implementation
 
 ---
 
+## Self-learning Courses:
+
+- [UCL Course on RL-AlphaGo项目负责人David Silver](https://www.davidsilver.uk/teaching/) 
+- [强化学习的数学原理](https://www.bilibili.com/video/BV1sd4y167NS/?p=8&spm_id_from=pageDriver&vd_source=b3d4057adb36b9b243dc8d7a6fc41295)
+  [Book-Mathmatical-Foundation-of-Reinforcement-Learning](https://github.com/MathFoundationRL/Book-Mathmatical-Foundation-of-Reinforcement-Learning)
+- [Hugging Face-Deep Reinforcement Learning Course](https://huggingface.co/learn/deep-rl-course/unit0/introduction)
+  [github-huggingface/deep-rl-class](https://github.com/huggingface/deep-rl-class)
+- [Deep Mind-强化学习高阶课程 Deep Reinforcement Learning](https://www.bilibili.com/video/av45444509/?from=search&seid=4510347850534739671&vd_source=b3d4057adb36b9b243dc8d7a6fc41295)
+
+
+
 ## 二、大学顶尖课程（优先推荐）
 
 
@@ -71,18 +82,6 @@ This repository is for reinforment learning and implementation
 学习 RL 已经没有必要将传统 RL 和 LLM RL 完全割裂开来。
 
 
-### Other Courses:
-
-
-- [Hugging Face-Deep Reinforcement Learning Course](https://huggingface.co/learn/deep-rl-course/unit0/introduction)
-- https://github.com/huggingface/deep-rl-class
-  
-
-- [强化学习的数学原理](https://www.bilibili.com/video/BV1sd4y167NS/?p=8&spm_id_from=pageDriver&vd_source=b3d4057adb36b9b243dc8d7a6fc41295)
-- https://github.com/MathFoundationRL/Book-Mathmatical-Foundation-of-Reinforcement-Learning
- 
--  [UCL Course on RL](https://www.davidsilver.uk/teaching/) AlphaGo项目负责人David Silver: Teaching
-- [Deep Mind-强化学习高阶课程 Deep Reinforcement Learning](https://www.bilibili.com/video/av45444509/?from=search&seid=4510347850534739671&vd_source=b3d4057adb36b9b243dc8d7a6fc41295)
 
 ---
 
